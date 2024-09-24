@@ -15,7 +15,7 @@ public class GreedyBestFirst extends Algo {
     public boolean findPath() {
         PriorityQueue<Case> openList = new PriorityQueue<>(Comparator.comparingInt(this::heuristic));
         Map<Case, Case> cameFrom = new HashMap<>();
-        Set<Case> closedList = new HashSet<>();
+        Set<Case> visited = new HashSet<>();
 
         Case start = labyrinthe.getCase(labyrinthe.getDepart().x, labyrinthe.getDepart().y);
         Case goal = labyrinthe.getCase(labyrinthe.getArrivee().x, labyrinthe.getArrivee().y);
@@ -30,7 +30,10 @@ public class GreedyBestFirst extends Algo {
                 return true;
             }
 
-            closedList.add(current);
+            if (visited.contains(current)) {
+                continue;
+            }
+            visited.add(current);
 
             if (current.getStatut() != Case.Statut.DEPART && current.getStatut() != Case.Statut.VISITE) {
                 current.setStatut(Case.Statut.VISITE);
@@ -38,16 +41,14 @@ public class GreedyBestFirst extends Algo {
             }
 
             for (Case neighbor : getNeighbors(current)) {
-                if (!closedList.contains(neighbor) && neighbor.getStatut() != Case.Statut.MUR) {
-                    if (!openList.contains(neighbor)) {
-                        cameFrom.put(neighbor, current);
-                        openList.add(neighbor);
-                    }
+                if (!visited.contains(neighbor) && neighbor.getStatut() != Case.Statut.MUR) {
+                    cameFrom.put(neighbor, current);
+                    openList.add(neighbor);
                 }
             }
         }
 
-        return false; // Pas de chemin trouvé
+        return false;
     }
 
     private int heuristic(Case c) {
@@ -61,35 +62,39 @@ public class GreedyBestFirst extends Algo {
 
         // Haut
         if (x > 0) {
-            Case haut = labyrinthe.getCase(x - 1, y);
-            if (haut.getStatut() != Case.Statut.MUR) neighbors.add(haut);
+            neighbors.add(labyrinthe.getCase(x - 1, y));
         }
         // Bas
         if (x < labyrinthe.getLignes() - 1) {
-            Case bas = labyrinthe.getCase(x + 1, y);
-            if (bas.getStatut() != Case.Statut.MUR) neighbors.add(bas);
+            neighbors.add(labyrinthe.getCase(x + 1, y));
         }
         // Gauche
         if (y > 0) {
-            Case gauche = labyrinthe.getCase(x, y - 1);
-            if (gauche.getStatut() != Case.Statut.MUR) neighbors.add(gauche);
+            neighbors.add(labyrinthe.getCase(x, y - 1));
         }
         // Droite
         if (y < labyrinthe.getColonnes() - 1) {
-            Case droite = labyrinthe.getCase(x, y + 1);
-            if (droite.getStatut() != Case.Statut.MUR) neighbors.add(droite);
+            neighbors.add(labyrinthe.getCase(x, y + 1));
         }
+
+        // Filtrer les cases non traversables
+        neighbors.removeIf(n -> n.getStatut() == Case.Statut.MUR);
 
         return neighbors;
     }
 
     private void reconstructPath(Map<Case, Case> cameFrom, Case current) {
+        List<Case> path = new ArrayList<>();
         while (cameFrom.containsKey(current)) {
-            if (current.getStatut() != Case.Statut.DEPART && current.getStatut() != Case.Statut.ARRIVEE) {
-                current.setStatut(Case.Statut.CHEMIN);
+            path.add(current);
+            current = cameFrom.get(current);
+        }
+        // Marquer le chemin
+        for (Case c : path) {
+            if (c.getStatut() != Case.Statut.DEPART && c.getStatut() != Case.Statut.ARRIVEE) {
+                c.setStatut(Case.Statut.CHEMIN);
                 labyrinthe.notifierObservateurs();
             }
-            current = cameFrom.get(current);
         }
     }
 }

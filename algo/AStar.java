@@ -7,14 +7,17 @@ import java.util.*;
 
 public class AStar extends Algo {
 
+    private Map<Case, Integer> gScore; // Déclaré au niveau de la classe
+
     public AStar(Labyrinthe labyrinthe) {
         super(labyrinthe);
+        this.gScore = new HashMap<>(); // Initialisation dans le constructeur
     }
 
     @Override
     public boolean findPath() {
         PriorityQueue<Case> openList = new PriorityQueue<>(Comparator.comparingInt(this::fScore));
-        Map<Case, Integer> gScore = new HashMap<>();
+        Set<Case> closedList = new HashSet<>();
         Map<Case, Case> cameFrom = new HashMap<>();
 
         Case start = labyrinthe.getCase(labyrinthe.getDepart().x, labyrinthe.getDepart().y);
@@ -31,17 +34,24 @@ public class AStar extends Algo {
                 return true;
             }
 
+            closedList.add(current);
+
             if (current.getStatut() != Case.Statut.DEPART && current.getStatut() != Case.Statut.ARRIVEE) {
                 current.setStatut(Case.Statut.VISITE);
             }
             labyrinthe.notifierObservateurs();
 
             for (Case neighbor : getNeighbors(current)) {
+                if (closedList.contains(neighbor) || neighbor.getStatut() == Case.Statut.MUR) {
+                    continue;
+                }
+
                 int tentativeGScore = gScore.get(current) + 1;
 
                 if (tentativeGScore < gScore.getOrDefault(neighbor, Integer.MAX_VALUE)) {
                     cameFrom.put(neighbor, current);
                     gScore.put(neighbor, tentativeGScore);
+
                     if (!openList.contains(neighbor)) {
                         openList.add(neighbor);
                     }
@@ -52,7 +62,7 @@ public class AStar extends Algo {
     }
 
     private int fScore(Case c) {
-        int g = Math.abs(c.getX() - labyrinthe.getDepart().x) + Math.abs(c.getY() - labyrinthe.getDepart().y);
+        int g = gScore.getOrDefault(c, Integer.MAX_VALUE);
         int h = heuristic(c);
         return g + h;
     }
@@ -68,33 +78,37 @@ public class AStar extends Algo {
 
         // Haut
         if (x > 0) {
-            Case haut = labyrinthe.getCase(x - 1, y);
-            if (haut.getStatut() != Case.Statut.MUR && haut.getStatut() != Case.Statut.VISITE) neighbors.add(haut);
+            neighbors.add(labyrinthe.getCase(x - 1, y));
         }
         // Bas
         if (x < labyrinthe.getLignes() - 1) {
-            Case bas = labyrinthe.getCase(x + 1, y);
-            if (bas.getStatut() != Case.Statut.MUR && bas.getStatut() != Case.Statut.VISITE) neighbors.add(bas);
+            neighbors.add(labyrinthe.getCase(x + 1, y));
         }
         // Gauche
         if (y > 0) {
-            Case gauche = labyrinthe.getCase(x, y - 1);
-            if (gauche.getStatut() != Case.Statut.MUR && gauche.getStatut() != Case.Statut.VISITE) neighbors.add(gauche);
+            neighbors.add(labyrinthe.getCase(x, y - 1));
         }
         // Droite
         if (y < labyrinthe.getColonnes() - 1) {
-            Case droite = labyrinthe.getCase(x, y + 1);
-            if (droite.getStatut() != Case.Statut.MUR && droite.getStatut() != Case.Statut.VISITE) neighbors.add(droite);
+            neighbors.add(labyrinthe.getCase(x, y + 1));
         }
+
+        // Filtrer les cases non traversables
+        neighbors.removeIf(n -> n.getStatut() == Case.Statut.MUR);
 
         return neighbors;
     }
 
     private void reconstructPath(Map<Case, Case> cameFrom, Case current) {
+        List<Case> path = new ArrayList<>();
         while (cameFrom.containsKey(current)) {
+            path.add(current);
             current = cameFrom.get(current);
-            if (current.getStatut() != Case.Statut.DEPART) {
-                current.setStatut(Case.Statut.CHEMIN);
+        }
+        // Marquer le chemin
+        for (Case c : path) {
+            if (c.getStatut() != Case.Statut.DEPART && c.getStatut() != Case.Statut.ARRIVEE) {
+                c.setStatut(Case.Statut.CHEMIN);
                 labyrinthe.notifierObservateurs();
             }
         }

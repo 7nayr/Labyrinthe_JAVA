@@ -11,8 +11,6 @@ public class IDAStar extends Algo {
         super(labyrinthe);
     }
 
-    private boolean found = false;
-
     @Override
     public boolean findPath() {
         Case start = labyrinthe.getCase(labyrinthe.getDepart().x, labyrinthe.getDepart().y);
@@ -21,7 +19,7 @@ public class IDAStar extends Algo {
         while (true) {
             Map<Case, Case> cameFrom = new HashMap<>();
             int temp = search(start, 0, threshold, cameFrom, new HashSet<>());
-            if (found) {
+            if (temp == -1) {
                 reconstructPath(cameFrom, labyrinthe.getCase(labyrinthe.getArrivee().x, labyrinthe.getArrivee().y));
                 return true;
             }
@@ -39,7 +37,6 @@ public class IDAStar extends Algo {
             return f;
         }
         if (current.equals(labyrinthe.getCase(labyrinthe.getArrivee().x, labyrinthe.getArrivee().y))) {
-            found = true;
             return -1;
         }
 
@@ -55,8 +52,12 @@ public class IDAStar extends Algo {
             if (!visited.contains(neighbor) && neighbor.getStatut() != Case.Statut.MUR) {
                 cameFrom.put(neighbor, current);
                 int temp = search(neighbor, g + 1, threshold, cameFrom, visited);
-                if (found) return -1;
-                if (temp < min) min = temp;
+                if (temp == -1) {
+                    return -1;
+                }
+                if (temp < min) {
+                    min = temp;
+                }
                 cameFrom.remove(neighbor);
             }
         }
@@ -74,36 +75,40 @@ public class IDAStar extends Algo {
         int y = c.getY();
 
         // Haut
-        if (y > 0) {
-            Case haut = labyrinthe.getCase(x, y - 1);
-            if (haut.getStatut() != Case.Statut.MUR) neighbors.add(haut);
+        if (x > 0) {
+            neighbors.add(labyrinthe.getCase(x - 1, y));
         }
         // Bas
-        if (y < labyrinthe.getColonnes() - 1) {
-            Case bas = labyrinthe.getCase(x, y + 1);
-            if (bas.getStatut() != Case.Statut.MUR) neighbors.add(bas);
+        if (x < labyrinthe.getLignes() - 1) {
+            neighbors.add(labyrinthe.getCase(x + 1, y));
         }
         // Gauche
-        if (x > 0) {
-            Case gauche = labyrinthe.getCase(x - 1, y);
-            if (gauche.getStatut() != Case.Statut.MUR) neighbors.add(gauche);
+        if (y > 0) {
+            neighbors.add(labyrinthe.getCase(x, y - 1));
         }
         // Droite
-        if (x < labyrinthe.getLignes() - 1) {
-            Case droite = labyrinthe.getCase(x + 1, y);
-            if (droite.getStatut() != Case.Statut.MUR) neighbors.add(droite);
+        if (y < labyrinthe.getColonnes() - 1) {
+            neighbors.add(labyrinthe.getCase(x, y + 1));
         }
+
+        // Filtrer les cases non traversables
+        neighbors.removeIf(n -> n.getStatut() == Case.Statut.MUR);
 
         return neighbors;
     }
 
     private void reconstructPath(Map<Case, Case> cameFrom, Case current) {
+        List<Case> path = new ArrayList<>();
         while (current != null && cameFrom.containsKey(current)) {
-            if (current.getStatut() != Case.Statut.DEPART && current.getStatut() != Case.Statut.ARRIVEE) {
-                current.setStatut(Case.Statut.CHEMIN);
+            path.add(current);
+            current = cameFrom.get(current);
+        }
+        // Marquer le chemin
+        for (Case c : path) {
+            if (c.getStatut() != Case.Statut.DEPART && c.getStatut() != Case.Statut.ARRIVEE) {
+                c.setStatut(Case.Statut.CHEMIN);
                 labyrinthe.notifierObservateurs();
             }
-            current = cameFrom.get(current);
         }
     }
 }
